@@ -43,3 +43,7 @@ class TemperatureMeasurement(Base):
 
     device = relationship("Device", back_populates="temperature_measurements")
     athlete = relationship("Athlete", back_populates="temperature_measurements")
+
+    @property
+    def device_uid(self) -> str | None:
+        return self.device.device_uid if self.device else None

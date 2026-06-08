@@ -2,11 +2,18 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 
 class TemperaturePayload(BaseModel):
-    device_id: str = Field(..., min_length=1, max_length=255)
+    model_config = ConfigDict(populate_by_name=True)
+
+    device_uid: str = Field(
+        ...,
+        validation_alias=AliasChoices("device_uid", "device_id"),
+        min_length=1,
+        max_length=255,
+    )
     sensor: Literal["MAX30205"]
     value_celsius: float
     unit: Literal["celsius"]
@@ -24,6 +31,7 @@ class TemperatureMeasurementRead(BaseModel):
 
     id: uuid.UUID
     device_id: uuid.UUID
+    device_uid: str | None
     athlete_id: uuid.UUID | None
     sensor: str
     value_celsius: float

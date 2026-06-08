@@ -40,7 +40,7 @@ async def test_temperature_ingestion_with_and_without_assignment(client):
     measurement_response = await client.post(
         "/api/v1/telemetry/temperature",
         json={
-            "device_id": "esp32-prototype-001",
+            "device_uid": "esp32-prototype-001",
             "sensor": "MAX30205",
             "value_celsius": 36.7,
             "unit": "celsius",
@@ -48,7 +48,7 @@ async def test_temperature_ingestion_with_and_without_assignment(client):
             "uptime_ms": 125000,
         },
     )
-    assert measurement_response.status_code == 200
+    assert measurement_response.status_code == 201
     assert measurement_response.json()["message"] == "temperature measurement registered"
 
     unassigned_response = await client.post(
@@ -62,7 +62,7 @@ async def test_temperature_ingestion_with_and_without_assignment(client):
             "uptime_ms": 2000,
         },
     )
-    assert unassigned_response.status_code == 200
+    assert unassigned_response.status_code == 201
 
     list_response = await client.get("/api/v1/telemetry/temperature?limit=100")
     assert list_response.status_code == 200
@@ -70,6 +70,8 @@ async def test_temperature_ingestion_with_and_without_assignment(client):
     assert len(measurements) == 2
     assert any(item["athlete_id"] == athlete_id for item in measurements)
     assert any(item["athlete_id"] is None for item in measurements)
+    assert any(item["device_uid"] == "esp32-prototype-001" for item in measurements)
+    assert any(item["device_uid"] == "esp32-unassigned" for item in measurements)
 
 
 async def test_device_assignment_history_is_preserved(client):
@@ -101,7 +103,7 @@ async def test_temperature_payload_validation(client):
     response = await client.post(
         "/api/v1/telemetry/temperature",
         json={
-            "device_id": "esp32-prototype-001",
+            "device_uid": "esp32-prototype-001",
             "sensor": "OTHER",
             "value_celsius": 36.7,
             "unit": "celsius",

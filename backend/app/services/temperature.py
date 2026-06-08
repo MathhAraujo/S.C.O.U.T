@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.device import Device
 from app.models.temperature_measurement import TemperatureMeasurement
@@ -19,7 +20,7 @@ def utcnow() -> datetime:
 async def ingest_temperature(session: AsyncSession, payload: TemperaturePayload) -> uuid.UUID:
     device = await get_or_create_device(
         session,
-        device_uid=payload.device_id,
+        device_uid=payload.device_uid,
         firmware_version=payload.firmware_version,
     )
     active_assignment = await get_active_assignment_for_device(session, device.id)
@@ -51,7 +52,7 @@ async def list_temperature_measurements(
     limit: int,
     offset: int,
 ) -> list[TemperatureMeasurement]:
-    statement = select(TemperatureMeasurement)
+    statement = select(TemperatureMeasurement).options(selectinload(TemperatureMeasurement.device))
 
     if device_uid:
         statement = statement.join(Device, TemperatureMeasurement.device_id == Device.id).where(

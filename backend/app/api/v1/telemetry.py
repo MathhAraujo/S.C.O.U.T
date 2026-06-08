@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
@@ -15,7 +15,11 @@ from app.services import temperature as temperature_service
 router = APIRouter(prefix="/telemetry", tags=["telemetry"])
 
 
-@router.post("/temperature", response_model=TemperatureIngestResponse)
+@router.post(
+    "/temperature",
+    response_model=TemperatureIngestResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def ingest_temperature(
     payload: TemperaturePayload,
     session: AsyncSession = Depends(get_session),

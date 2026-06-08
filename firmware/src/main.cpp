@@ -14,68 +14,89 @@
 
 #define SENSOR_READ_INTERVAL_MS 1000
 #define TEMPERATURE_OFFSET_CELSIUS 0.0f
+#define WIFI_CONNECT_MAX_ATTEMPTS 60
+#define MQTT_CONNECT_MAX_ATTEMPTS 5
+#define MIN_VALID_TEMPERATURE_CELSIUS 15.0f
+#define MAX_VALID_TEMPERATURE_CELSIUS 45.0f
 
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 MAX30205 temperatureSensor;
 
 unsigned long lastSensorReadAt = 0;
+bool sensorAvailable = false;
 
-void connectWiFi() {
+bool connectWiFi() {
   if (WiFi.status() == WL_CONNECTED) {
-    return;
+    return true;
   }
 
   Serial.print("Connecting to Wi-Fi");
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
-  while (WiFi.status() != WL_CONNECTED) {
+  for (int attempt = 0; attempt < WIFI_CONNECT_MAX_ATTEMPTS && WiFi.status() != WL_CONNECTED; attempt++) {
     delay(500);
     Serial.print(".");
+  }
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println();
+    Serial.println("Wi-Fi connection failed");
+    return false;
   }
 
   Serial.println();
   Serial.print("Wi-Fi connected: ");
   Serial.println(WiFi.localIP());
+  return true;
 }
 
-void connectMqtt() {
+bool connectMqtt() {
   if (mqttClient.connected()) {
-    return;
+    return true;
   }
 
-  while (!mqttClient.connected()) {
-    connectWiFi();
+  static char clientId[64];
+  snprintf(clientId, sizeof(clientId), "%s-client", DEVICE_ID);
 
-    String clientId = String(DEVICE_ID) + "-client";
+  for (int attempt = 0; attempt < MQTT_CONNECT_MAX_ATTEMPTS; attempt++) {
+    if (!connectWiFi()) {
+      return false;
+    }
+
     Serial.print("Connecting to MQTT broker ");
     Serial.print(MQTT_HOST);
     Serial.print(":");
     Serial.println(MQTT_PORT);
 
-    if (mqttClient.connect(clientId.c_str())) {
+    if (mqttClient.connect(clientId)) {
       Serial.println("MQTT connected");
-      return;
+      return true;
     }
 
     Serial.print("MQTT connection failed, rc=");
     Serial.println(mqttClient.state());
     delay(2000);
   }
+
+  Serial.println("MQTT connection failed after maximum attempts");
+  return false;
 }
 
 void publishTemperature() {
   float rawTemperature = temperatureSensor.getTemperature();
-  if (isnan(rawTemperature)) {
-    Serial.println("MAX30205 returned an invalid temperature");
+  float adjustedTemperature = rawTemperature + TEMPERATURE_OFFSET_CELSIUS;
+
+  if (isnan(adjustedTemperature) ||
+      adjustedTemperature < MIN_VALID_TEMPERATURE_CELSIUS ||
+      adjustedTemperature > MAX_VALID_TEMPERATURE_CELSIUS) {
+    Serial.println("MAX30205 returned an invalid temperature, skipping publish");
     return;
   }
 
-  float adjustedTemperature = rawTemperature + TEMPERATURE_OFFSET_CELSIUS;
-
   JsonDocument payload;
-  payload["device_id"] = DEVICE_ID;
+  payload["device_uid"] = DEVICE_ID;
   payload["sensor"] = "MAX30205";
   payload["value_celsius"] = adjustedTemperature;
   payload["unit"] = "celsius";
@@ -108,8 +129,8 @@ void setup() {
   Wire.begin();
   temperatureSensor.begin();
 
-  bool sensorFound = temperatureSensor.scanAvailableSensors();
-  if (!sensorFound) {
+  sensorAvailable = temperatureSensor.scanAvailableSensors();
+  if (!sensorAvailable) {
     Serial.println("MAX30205 not found on I2C bus");
   }
 
@@ -119,13 +140,24 @@ void setup() {
 }
 
 void loop() {
-  connectWiFi();
-  connectMqtt();
+  if (!connectWiFi()) {
+    return;
+  }
+
+  if (!connectMqtt()) {
+    return;
+  }
+
   mqttClient.loop();
 
   unsigned long now = millis();
   if (now - lastSensorReadAt >= SENSOR_READ_INTERVAL_MS) {
     lastSensorReadAt = now;
+    if (!sensorAvailable) {
+      Serial.println("Temperature sensor unavailable, skipping publish");
+      return;
+    }
+
     publishTemperature();
   }
 }
