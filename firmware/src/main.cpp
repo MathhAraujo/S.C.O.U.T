@@ -87,7 +87,11 @@ void publishTemperature() {
 
   char buffer[256];
   size_t length = serializeJson(payload, buffer, sizeof(buffer));
-  bool published = mqttClient.publish(topic, buffer, length);
+  bool published = mqttClient.publish(
+      topic,
+      reinterpret_cast<const uint8_t *>(buffer),
+      static_cast<unsigned int>(length),
+      false);
 
   if (published) {
     Serial.print("Published temperature to ");
