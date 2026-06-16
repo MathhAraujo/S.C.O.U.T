@@ -137,6 +137,10 @@ void publishTemperature() {
   float rawTemperature = readNtcTemperature();
   float adjustedTemperature = rawTemperature + TEMPERATURE_OFFSET_CELSIUS;
 
+  Serial.print("NTC temperature read: ");
+  Serial.print(adjustedTemperature, 2);
+  Serial.println(" C");
+
   if (isnan(adjustedTemperature) ||
       adjustedTemperature < MIN_VALID_TEMPERATURE_CELSIUS ||
       adjustedTemperature > MAX_VALID_TEMPERATURE_CELSIUS) {
