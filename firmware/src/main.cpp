@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
-#include <math.h>
 #include <PubSubClient.h>
 #include <WiFi.h>
 
@@ -12,30 +11,20 @@
 #endif
 
 #define SENSOR_READ_INTERVAL_MS 1000
-#define TEMPERATURE_OFFSET_CELSIUS 0.0f
-#define NTC_ADC_PIN 34
-#define NTC_ADC_MAX_VALUE 4095.0f
-#define NTC_ADC_SAMPLES 16
-#define NTC_ADC_SAMPLE_DELAY_MS 2
-#define NTC_SERIES_RESISTOR_OHMS 10000.0f
-#define NTC_NOMINAL_RESISTANCE_OHMS 10000.0f
-#define NTC_NOMINAL_TEMPERATURE_CELSIUS 25.0f
-#define NTC_BETA_COEFFICIENT 3950.0f
-#define NTC_CONNECTED_TO_GROUND 1
+#define NTC_DIGITAL_PIN 34
+#define NTC_THRESHOLD_CELSIUS 30.0f
+#define NTC_ABOVE_THRESHOLD_LEVEL LOW
 #define WIFI_CONNECT_MAX_ATTEMPTS 60
 #define MQTT_CONNECT_MAX_ATTEMPTS 5
-#define MIN_VALID_TEMPERATURE_CELSIUS 15.0f
-#define MAX_VALID_TEMPERATURE_CELSIUS 45.0f
 
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
 unsigned long lastSensorReadAt = 0;
 
-struct NtcReading {
-  float adcValue;
-  float resistanceOhms;
-  float temperatureCelsius;
+struct NtcThresholdReading {
+  int digitalLevel;
+  bool aboveThreshold;
 };
 
 bool connectWiFi() {
@@ -96,81 +85,39 @@ bool connectMqtt() {
   return false;
 }
 
-float readAverageAdcValue() {
-  uint32_t adcSum = 0;
-
-  for (uint8_t sample = 0; sample < NTC_ADC_SAMPLES; sample++) {
-    adcSum += analogRead(NTC_ADC_PIN);
-    delay(NTC_ADC_SAMPLE_DELAY_MS);
-  }
-
-  return static_cast<float>(adcSum) / static_cast<float>(NTC_ADC_SAMPLES);
+const char *digitalLevelName(int digitalLevel) {
+  return digitalLevel == HIGH ? "HIGH" : "LOW";
 }
 
-float calculateNtcResistance(float adcValue) {
-  if (adcValue <= 0.0f || adcValue >= NTC_ADC_MAX_VALUE) {
-    return NAN;
-  }
-
-#if NTC_CONNECTED_TO_GROUND
-  return NTC_SERIES_RESISTOR_OHMS * adcValue / (NTC_ADC_MAX_VALUE - adcValue);
-#else
-  return NTC_SERIES_RESISTOR_OHMS * (NTC_ADC_MAX_VALUE - adcValue) / adcValue;
-#endif
-}
-
-float calculateTemperatureCelsius(float resistanceOhms) {
-  if (isnan(resistanceOhms) || resistanceOhms <= 0.0f) {
-    return NAN;
-  }
-
-  const float nominalTemperatureKelvin = NTC_NOMINAL_TEMPERATURE_CELSIUS + 273.15f;
-  const float inverseTemperatureKelvin =
-      (logf(resistanceOhms / NTC_NOMINAL_RESISTANCE_OHMS) / NTC_BETA_COEFFICIENT) +
-      (1.0f / nominalTemperatureKelvin);
-
-  return (1.0f / inverseTemperatureKelvin) - 273.15f;
-}
-
-NtcReading readNtc() {
-  float adcValue = readAverageAdcValue();
-  float resistanceOhms = calculateNtcResistance(adcValue);
+NtcThresholdReading readNtcThreshold() {
+  int digitalLevel = digitalRead(NTC_DIGITAL_PIN);
 
   return {
-      adcValue,
-      resistanceOhms,
-      calculateTemperatureCelsius(resistanceOhms)};
+      digitalLevel,
+      digitalLevel == NTC_ABOVE_THRESHOLD_LEVEL};
 }
 
-void publishTemperature() {
-  NtcReading reading = readNtc();
-  float adjustedTemperature = reading.temperatureCelsius + TEMPERATURE_OFFSET_CELSIUS;
+void publishTemperatureStatus() {
+  NtcThresholdReading reading = readNtcThreshold();
 
-  Serial.print("NTC ADC: ");
-  Serial.print(reading.adcValue, 2);
-  Serial.print(" | resistance: ");
-  Serial.print(reading.resistanceOhms, 2);
-  Serial.print(" ohms | temperature: ");
-  Serial.print(adjustedTemperature, 2);
-  Serial.println(" C");
-
-  if (isnan(adjustedTemperature) ||
-      adjustedTemperature < MIN_VALID_TEMPERATURE_CELSIUS ||
-      adjustedTemperature > MAX_VALID_TEMPERATURE_CELSIUS) {
-    Serial.println("NTC returned an invalid temperature, skipping publish");
-    return;
-  }
+  Serial.print("NTC threshold: ");
+  Serial.print(NTC_THRESHOLD_CELSIUS, 2);
+  Serial.print(" C | DO: ");
+  Serial.print(digitalLevelName(reading.digitalLevel));
+  Serial.print(" | status: ");
+  Serial.println(reading.aboveThreshold ? "above threshold" : "below threshold");
 
   JsonDocument payload;
   payload["device_uid"] = DEVICE_ID;
-  payload["sensor"] = "NTC";
-  payload["value_celsius"] = adjustedTemperature;
-  payload["unit"] = "celsius";
+  payload["sensor"] = "NTC_LM393";
+  payload["threshold_celsius"] = NTC_THRESHOLD_CELSIUS;
+  payload["above_threshold"] = reading.aboveThreshold;
+  payload["digital_level"] = digitalLevelName(reading.digitalLevel);
   payload["firmware_version"] = FIRMWARE_VERSION;
   payload["uptime_ms"] = millis();
 
   char topic[128];
-  snprintf(topic, sizeof(topic), "athletes/%s/temperature", DEVICE_ID);
+  snprintf(topic, sizeof(topic), "athletes/%s/temperature-threshold", DEVICE_ID);
 
   char buffer[256];
   size_t length = serializeJson(payload, buffer, sizeof(buffer));
@@ -181,10 +128,10 @@ void publishTemperature() {
       false);
 
   if (published) {
-    Serial.print("Published temperature to ");
+    Serial.print("Published threshold status to ");
     Serial.println(topic);
   } else {
-    Serial.println("Failed to publish temperature");
+    Serial.println("Failed to publish threshold status");
   }
 }
 
@@ -192,11 +139,12 @@ void setup() {
   Serial.begin(115200);
   delay(500);
 
-  analogReadResolution(12);
-  analogSetPinAttenuation(NTC_ADC_PIN, ADC_11db);
-  pinMode(NTC_ADC_PIN, INPUT);
-  Serial.print("NTC sensor configured on GPIO");
-  Serial.println(NTC_ADC_PIN);
+  pinMode(NTC_DIGITAL_PIN, INPUT);
+  Serial.print("NTC LM393 digital output configured on GPIO");
+  Serial.println(NTC_DIGITAL_PIN);
+  Serial.print("NTC threshold point configured as ");
+  Serial.print(NTC_THRESHOLD_CELSIUS, 2);
+  Serial.println(" C");
 
   mqttClient.setServer(MQTT_HOST, MQTT_PORT);
   connectWiFi();
@@ -217,6 +165,6 @@ void loop() {
   unsigned long now = millis();
   if (now - lastSensorReadAt >= SENSOR_READ_INTERVAL_MS) {
     lastSensorReadAt = now;
-    publishTemperature();
+    publishTemperatureStatus();
   }
 }

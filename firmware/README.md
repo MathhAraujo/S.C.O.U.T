@@ -15,23 +15,26 @@ Copie `include/secrets.example.h` para `include/secrets.h` e ajuste:
 
 O arquivo `include/secrets.h` nao e versionado.
 
-## Sensor
+## Sensor LM393
 
-O NTC deve ser ligado em um divisor de tensao no GPIO34 por padrao. A configuracao esperada e:
+O modulo NTC com LM393 deve ser ligado pela saida digital `DO` no GPIO34 por padrao:
 
 ```text
-3V3 -> resistor 10k -> GPIO34 -> NTC 10k -> GND
+VCC -> 3V3
+GND -> GND
+DO  -> GPIO34
 ```
 
-A leitura ocorre a cada 1 segundo, controlada por `SENSOR_READ_INTERVAL_MS`. O offset opcional `TEMPERATURE_OFFSET_CELSIUS` tem valor padrao zero.
+A leitura ocorre a cada 1 segundo, controlada por `SENSOR_READ_INTERVAL_MS`.
 
-Os parametros do divisor e da curva Beta ficam em `src/main.cpp`:
+O ponto de limite usado pelo firmware e `NTC_THRESHOLD_CELSIUS`, definido como 30 C. Como o modulo usa o comparador LM393, esse ponto precisa ser calibrado fisicamente no trimpot do modulo. O firmware le apenas se a saida `DO` esta acima ou abaixo desse limite; ele nao mede a temperatura exata em Celsius.
 
-- `NTC_ADC_PIN`
-- `NTC_SERIES_RESISTOR_OHMS`
-- `NTC_NOMINAL_RESISTANCE_OHMS`
-- `NTC_NOMINAL_TEMPERATURE_CELSIUS`
-- `NTC_BETA_COEFFICIENT`
-- `NTC_CONNECTED_TO_GROUND`
+Os parametros do modulo ficam em `src/main.cpp`:
+
+- `NTC_DIGITAL_PIN`
+- `NTC_THRESHOLD_CELSIUS`
+- `NTC_ABOVE_THRESHOLD_LEVEL`
+
+Se o status aparecer invertido no monitor serial, troque `NTC_ABOVE_THRESHOLD_LEVEL` de `LOW` para `HIGH` em `src/main.cpp`.
 
 As leituras dependem do contato com a pele, da fixacao fisica, da posicao de uso, de roupa, suor e ambiente. O prototipo registra dados, mas nao gera diagnostico medico.
