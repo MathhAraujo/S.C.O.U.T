@@ -41,7 +41,7 @@ async def test_temperature_ingestion_with_and_without_assignment(client):
         "/api/v1/telemetry/temperature",
         json={
             "device_uid": "esp32-prototype-001",
-            "sensor": "MAX30205",
+            "sensor": "NTC",
             "value_celsius": 36.7,
             "unit": "celsius",
             "firmware_version": "0.1.0",
@@ -55,7 +55,7 @@ async def test_temperature_ingestion_with_and_without_assignment(client):
         "/api/v1/telemetry/temperature",
         json={
             "device_id": "esp32-unassigned",
-            "sensor": "MAX30205",
+            "sensor": "NTC",
             "value_celsius": 35.9,
             "unit": "celsius",
             "firmware_version": "0.1.0",

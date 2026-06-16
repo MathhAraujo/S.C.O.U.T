@@ -14,7 +14,7 @@ class TemperaturePayload(BaseModel):
         min_length=1,
         max_length=255,
     )
-    sensor: Literal["MAX30205"]
+    sensor: Literal["NTC"]
     value_celsius: float
     unit: Literal["celsius"]
     firmware_version: str | None = Field(default=None, max_length=50)

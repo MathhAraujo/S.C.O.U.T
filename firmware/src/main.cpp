@@ -1,9 +1,8 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <math.h>
 #include <PubSubClient.h>
 #include <WiFi.h>
-#include <Wire.h>
-#include <Protocentral_MAX30205.h>
 
 #if __has_include("secrets.h")
 #include "secrets.h"
@@ -14,6 +13,15 @@
 
 #define SENSOR_READ_INTERVAL_MS 1000
 #define TEMPERATURE_OFFSET_CELSIUS 0.0f
+#define NTC_ADC_PIN 34
+#define NTC_ADC_MAX_VALUE 4095.0f
+#define NTC_ADC_SAMPLES 16
+#define NTC_ADC_SAMPLE_DELAY_MS 2
+#define NTC_SERIES_RESISTOR_OHMS 10000.0f
+#define NTC_NOMINAL_RESISTANCE_OHMS 10000.0f
+#define NTC_NOMINAL_TEMPERATURE_CELSIUS 25.0f
+#define NTC_BETA_COEFFICIENT 3950.0f
+#define NTC_CONNECTED_TO_GROUND 1
 #define WIFI_CONNECT_MAX_ATTEMPTS 60
 #define MQTT_CONNECT_MAX_ATTEMPTS 5
 #define MIN_VALID_TEMPERATURE_CELSIUS 15.0f
@@ -21,10 +29,8 @@
 
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
-MAX30205 temperatureSensor;
 
 unsigned long lastSensorReadAt = 0;
-bool sensorAvailable = false;
 
 bool connectWiFi() {
   if (WiFi.status() == WL_CONNECTED) {
@@ -84,20 +90,63 @@ bool connectMqtt() {
   return false;
 }
 
+float readAverageAdcValue() {
+  uint32_t adcSum = 0;
+
+  for (uint8_t sample = 0; sample < NTC_ADC_SAMPLES; sample++) {
+    adcSum += analogRead(NTC_ADC_PIN);
+    delay(NTC_ADC_SAMPLE_DELAY_MS);
+  }
+
+  return static_cast<float>(adcSum) / static_cast<float>(NTC_ADC_SAMPLES);
+}
+
+float calculateNtcResistance(float adcValue) {
+  if (adcValue <= 0.0f || adcValue >= NTC_ADC_MAX_VALUE) {
+    return NAN;
+  }
+
+#if NTC_CONNECTED_TO_GROUND
+  return NTC_SERIES_RESISTOR_OHMS * adcValue / (NTC_ADC_MAX_VALUE - adcValue);
+#else
+  return NTC_SERIES_RESISTOR_OHMS * (NTC_ADC_MAX_VALUE - adcValue) / adcValue;
+#endif
+}
+
+float calculateTemperatureCelsius(float resistanceOhms) {
+  if (isnan(resistanceOhms) || resistanceOhms <= 0.0f) {
+    return NAN;
+  }
+
+  const float nominalTemperatureKelvin = NTC_NOMINAL_TEMPERATURE_CELSIUS + 273.15f;
+  const float inverseTemperatureKelvin =
+      (logf(resistanceOhms / NTC_NOMINAL_RESISTANCE_OHMS) / NTC_BETA_COEFFICIENT) +
+      (1.0f / nominalTemperatureKelvin);
+
+  return (1.0f / inverseTemperatureKelvin) - 273.15f;
+}
+
+float readNtcTemperature() {
+  float adcValue = readAverageAdcValue();
+  float resistanceOhms = calculateNtcResistance(adcValue);
+
+  return calculateTemperatureCelsius(resistanceOhms);
+}
+
 void publishTemperature() {
-  float rawTemperature = temperatureSensor.getTemperature();
+  float rawTemperature = readNtcTemperature();
   float adjustedTemperature = rawTemperature + TEMPERATURE_OFFSET_CELSIUS;
 
   if (isnan(adjustedTemperature) ||
       adjustedTemperature < MIN_VALID_TEMPERATURE_CELSIUS ||
       adjustedTemperature > MAX_VALID_TEMPERATURE_CELSIUS) {
-    Serial.println("MAX30205 returned an invalid temperature, skipping publish");
+    Serial.println("NTC returned an invalid temperature, skipping publish");
     return;
   }
 
   JsonDocument payload;
   payload["device_uid"] = DEVICE_ID;
-  payload["sensor"] = "MAX30205";
+  payload["sensor"] = "NTC";
   payload["value_celsius"] = adjustedTemperature;
   payload["unit"] = "celsius";
   payload["firmware_version"] = FIRMWARE_VERSION;
@@ -126,13 +175,11 @@ void setup() {
   Serial.begin(115200);
   delay(500);
 
-  Wire.begin();
-  temperatureSensor.begin();
-
-  sensorAvailable = temperatureSensor.scanAvailableSensors();
-  if (!sensorAvailable) {
-    Serial.println("MAX30205 not found on I2C bus");
-  }
+  analogReadResolution(12);
+  analogSetPinAttenuation(NTC_ADC_PIN, ADC_11db);
+  pinMode(NTC_ADC_PIN, INPUT);
+  Serial.print("NTC sensor configured on GPIO");
+  Serial.println(NTC_ADC_PIN);
 
   mqttClient.setServer(MQTT_HOST, MQTT_PORT);
   connectWiFi();
@@ -153,11 +200,6 @@ void loop() {
   unsigned long now = millis();
   if (now - lastSensorReadAt >= SENSOR_READ_INTERVAL_MS) {
     lastSensorReadAt = now;
-    if (!sensorAvailable) {
-      Serial.println("Temperature sensor unavailable, skipping publish");
-      return;
-    }
-
     publishTemperature();
   }
 }

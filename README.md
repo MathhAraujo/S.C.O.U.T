@@ -1,6 +1,6 @@
 # S.C.O.U.T
 
-Sistema local para receber leituras de temperatura de uma ESP32 com MAX30205 via MQTT, encaminhar pelo Node-RED e persistir no backend FastAPI com PostgreSQL.
+Sistema local para receber leituras de temperatura de uma ESP32 com sensor NTC via MQTT, encaminhar pelo Node-RED e persistir no backend FastAPI com PostgreSQL.
 
 ## Requisitos
 
