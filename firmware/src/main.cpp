@@ -32,6 +32,12 @@ PubSubClient mqttClient(wifiClient);
 
 unsigned long lastSensorReadAt = 0;
 
+struct NtcReading {
+  float adcValue;
+  float resistanceOhms;
+  float temperatureCelsius;
+};
+
 bool connectWiFi() {
   if (WiFi.status() == WL_CONNECTED) {
     return true;
@@ -126,18 +132,25 @@ float calculateTemperatureCelsius(float resistanceOhms) {
   return (1.0f / inverseTemperatureKelvin) - 273.15f;
 }
 
-float readNtcTemperature() {
+NtcReading readNtc() {
   float adcValue = readAverageAdcValue();
   float resistanceOhms = calculateNtcResistance(adcValue);
 
-  return calculateTemperatureCelsius(resistanceOhms);
+  return {
+      adcValue,
+      resistanceOhms,
+      calculateTemperatureCelsius(resistanceOhms)};
 }
 
 void publishTemperature() {
-  float rawTemperature = readNtcTemperature();
-  float adjustedTemperature = rawTemperature + TEMPERATURE_OFFSET_CELSIUS;
+  NtcReading reading = readNtc();
+  float adjustedTemperature = reading.temperatureCelsius + TEMPERATURE_OFFSET_CELSIUS;
 
-  Serial.print("NTC temperature read: ");
+  Serial.print("NTC ADC: ");
+  Serial.print(reading.adcValue, 2);
+  Serial.print(" | resistance: ");
+  Serial.print(reading.resistanceOhms, 2);
+  Serial.print(" ohms | temperature: ");
   Serial.print(adjustedTemperature, 2);
   Serial.println(" C");
 
