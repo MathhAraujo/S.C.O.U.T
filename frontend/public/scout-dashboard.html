@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>S.C.O.U.T — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    /* ─── DESIGN TOKENS ─────────────────────────────────── */
+    :root, [data-theme="light"] {
+      --color-bg:              #f7f6f2;
+      --color-surface:         #f9f8f5;
+      --color-surface-2:       #fbfbf9;
+      --color-surface-offset:  #f0ede8;
+      --color-surface-dynamic: #e6e4df;
+      --color-divider:         #dcd9d5;
+      --color-border:          #d4d1ca;
+      --color-text:            #1a1814;
+      --color-text-muted:      #6a6967;
+      --color-text-faint:      #b0aeaa;
+      --color-primary:         #01696f;
+      --color-primary-glow:    rgba(1,105,111,0.15);
+      --color-warning:         #d97706;
+      --color-error:           #dc2626;
+      --color-success:         #16a34a;
+      --color-blue:            #1d4ed8;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.07);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.09);
+      --radius-sm: 0.375rem; --radius-md: 0.5rem;
+      --radius-lg: 0.75rem;  --radius-xl: 1rem;
+      --text-xs:   clamp(0.75rem,  0.7rem + 0.25vw, 0.875rem);
+      --text-sm:   clamp(0.875rem, 0.8rem + 0.35vw, 1rem);
+      --text-base: clamp(1rem,     0.95rem + 0.25vw, 1.125rem);
+      --text-lg:   clamp(1.125rem, 1rem + 0.75vw, 1.5rem);
+      --text-xl:   clamp(1.5rem,   1.2rem + 1.25vw, 2.25rem);
+      --space-1:.25rem; --space-2:.5rem;  --space-3:.75rem; --space-4:1rem;
+      --space-5:1.25rem; --space-6:1.5rem; --space-8:2rem;
+      --transition: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    [data-theme="dark"] {
+      --color-bg:              #0f1012;
+      --color-surface:         #161719;
+      --color-surface-2:       #1c1e20;
+      --color-surface-offset:  #1a1c1e;
+      --color-surface-dynamic: #252729;
+      --color-divider:         #232527;
+      --color-border:          #2e3033;
+      --color-text:            #e8e6e2;
+      --color-text-muted:      #7a7874;
+      --color-text-faint:      #4a4845;
+      --color-primary:         #2db8c0;
+      --color-primary-glow:    rgba(45,184,192,0.12);
+      --color-warning:         #f59e0b;
+      --color-error:           #f87171;
+      --color-success:         #4ade80;
+      --color-blue:            #60a5fa;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.25);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.35);
+    }
+
+    /* ─── BASE ──────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { -webkit-font-smoothing: antialiased; scroll-behavior: smooth; }
+    body {
+      min-height: 100dvh; font-family: 'Inter', sans-serif;
+      font-size: var(--text-base); color: var(--color-text);
+      background: var(--color-bg); display: flex;
+    }
+    img, svg { display: block; }
+    button { cursor: pointer; background: none; border: none; font: inherit; color: inherit; }
+    a, button, input { transition: color var(--transition), background var(--transition), border-color var(--transition); }
+    :focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; border-radius: var(--radius-sm); }
+
+    /* ─── SIDEBAR ───────────────────────────────────────── */
+    .sidebar {
+      width: 240px; min-height: 100dvh; background: var(--color-surface);
+      border-right: 1px solid var(--color-border);
+      display: flex; flex-direction: column;
+      position: sticky; top: 0; height: 100dvh;
+      overflow-y: auto; flex-shrink: 0;
+    }
+    .sidebar-logo {
+      display: flex; align-items: center; gap: var(--space-3);
+      padding: var(--space-5); border-bottom: 1px solid var(--color-divider);
+    }
+    .logo-mark {
+      width: 36px; height: 36px; background: var(--color-primary);
+      border-radius: var(--radius-md); display: flex;
+      align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .logo-text { font-size: var(--text-sm); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .logo-sub  { font-size: var(--text-xs); color: var(--color-text-muted); margin-top: 1px; }
+    .nav-section { padding: var(--space-4) var(--space-3); }
+    .nav-label {
+      font-size: var(--text-xs); font-weight: 600; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--color-text-faint);
+      padding: 0 var(--space-2); margin-bottom: var(--space-2);
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: var(--space-3);
+      padding: var(--space-2) var(--space-3); border-radius: var(--radius-md);
+      font-size: var(--text-sm); color: var(--color-text-muted);
+      text-decoration: none; cursor: pointer;
+      transition: background var(--transition), color var(--transition);
+    }
+    .nav-item:hover { background: var(--color-surface-offset); color: var(--color-text); }
+    .nav-item.active { background: var(--color-primary-glow); color: var(--color-primary); font-weight: 600; }
+    .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .status-indicator {
+      margin-top: auto; padding: var(--space-4) var(--space-5);
+      border-top: 1px solid var(--color-divider);
+    }
+    .status-row { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-success); animation: pulse 2s ease-in-out infinite; }
+    .dot.offline { background: var(--color-error); animation: none; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    /* ─── MAIN ──────────────────────────────────────────── */
+    .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: var(--space-4) var(--space-8);
+      border-bottom: 1px solid var(--color-border);
+      background: var(--color-surface); position: sticky; top: 0; z-index: 10;
+    }
+    .topbar-title { font-size: var(--text-lg); font-weight: 700; }
+    .topbar-actions { display: flex; align-items: center; gap: var(--space-3); }
+    .btn-icon {
+      width: 36px; height: 36px; border-radius: var(--radius-md);
+      border: 1px solid var(--color-border);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--color-text-muted); transition: all var(--transition);
+    }
+    .btn-icon:hover { background: var(--color-surface-offset); color: var(--color-text); }
+    .btn-icon svg { width: 16px; height: 16px; }
+    .badge-live {
+      display: flex; align-items: center; gap: var(--space-2);
+      background: color-mix(in oklch, var(--color-success) 12%, var(--color-surface));
+      color: var(--color-success);
+      border: 1px solid color-mix(in oklch, var(--color-success) 25%, transparent);
+      border-radius: 9999px; padding: var(--space-1) var(--space-3);
+      font-size: var(--text-xs); font-weight: 600;
+    }
+    .badge-live .dot { width: 6px; height: 6px; background: var(--color-success); }
+    .last-update { font-size: var(--text-xs); color: var(--color-text-muted); }
+
+    /* ─── CONTENT ───────────────────────────────────────── */
+    .content { padding: var(--space-8); flex: 1; }
+
+    /* ─── OFFLINE BANNER ────────────────────────────────── */
+    .offline-banner {
+      display: none; align-items: center; gap: var(--space-3);
+      background: color-mix(in oklch, var(--color-warning) 10%, var(--color-surface));
+      border: 1px solid color-mix(in oklch, var(--color-warning) 30%, transparent);
+      border-radius: var(--radius-md); padding: var(--space-3) var(--space-4);
+      margin-bottom: var(--space-6); font-size: var(--text-xs); color: var(--color-warning);
+    }
+    .offline-banner.show { display: flex; }
+    .offline-banner svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+    /* ─── ATHLETE BAR ───────────────────────────────────── */
+    .athlete-bar {
+      display: flex; align-items: center; gap: var(--space-4);
+      margin-bottom: var(--space-8); padding: var(--space-4) var(--space-5);
+      background: var(--color-surface); border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+    }
+    .athlete-avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: var(--color-primary-glow); border: 2px solid var(--color-primary);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: var(--text-sm); color: var(--color-primary); flex-shrink: 0;
+    }
+    .athlete-info { flex: 1; }
+    .athlete-name { font-weight: 600; font-size: var(--text-sm); }
+    .athlete-meta { font-size: var(--text-xs); color: var(--color-text-muted); margin-top: 2px; }
+    .device-tag {
+      display: flex; align-items: center; gap: var(--space-1);
+      background: var(--color-surface-offset); border-radius: var(--radius-sm);
+      padding: var(--space-1) var(--space-2); font-size: var(--text-xs);
+      color: var(--color-text-muted); font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ─── KPI GRID ──────────────────────────────────────── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(min(220px,100%), 1fr));
+      gap: var(--space-4); margin-bottom: var(--space-8);
+    }
+    .kpi-card {
+      background: var(--color-surface); border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg); padding: var(--space-5);
+      position: relative; overflow: hidden;
+      transition: box-shadow var(--transition), transform var(--transition);
+    }
+    .kpi-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+    .kpi-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3); }
+    .kpi-label  { font-size: var(--text-xs); font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--color-text-muted); }
+    .kpi-icon   { width: 32px; height: 32px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; }
+    .kpi-icon svg { width: 16px; height: 16px; }
+    .kpi-value  { font-family: 'JetBrains Mono', monospace; font-size: var(--text-xl); font-weight: 700; line-height: 1; margin-bottom: var(--space-2); }
+    .kpi-unit   { font-size: var(--text-xs); font-weight: 400; color: var(--color-text-muted); margin-left: 3px; }
+    .kpi-status { display: inline-flex; align-items: center; gap: 5px; font-size: var(--text-xs); padding: 2px 8px; border-radius: 9999px; font-weight: 600; }
+    .kpi-glow   { position: absolute; bottom: -20px; right: -20px; width: 80px; height: 80px; border-radius: 50%; opacity: .12; }
+    .status-normal  { background: color-mix(in oklch,var(--color-success) 15%,transparent); color: var(--color-success); }
+    .status-warning { background: color-mix(in oklch,var(--color-warning) 15%,transparent); color: var(--color-warning); }
+    .status-danger  { background: color-mix(in oklch,var(--color-error)   15%,transparent); color: var(--color-error); }
+
+    /* ─── MAIN GRID ─────────────────────────────────────── */
+    .main-grid {
+      display: grid; grid-template-columns: 1fr 340px;
+      gap: var(--space-6); margin-bottom: var(--space-6);
+    }
+    @media (max-width: 1024px) { .main-grid { grid-template-columns: 1fr; } }
+
+    /* ─── CARD ──────────────────────────────────────────── */
+    .card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; }
+    .card-header { display: flex; align-items: center; justify-content: space-between; padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--color-divider); }
+    .card-title  { font-size: var(--text-sm); font-weight: 700; display: flex; align-items: center; gap: var(--space-2); }
+    .card-title svg { width: 15px; height: 15px; color: var(--color-primary); }
+    .card-body   { padding: var(--space-5); }
+    .chart-wrap  { position: relative; height: 220px; }
+
+    /* ─── RISK PANEL ────────────────────────────────────── */
+    .risk-level { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-4); border-radius: var(--radius-md); margin-bottom: var(--space-4); }
+    .risk-level.normal  { background: color-mix(in oklch,var(--color-success) 8%,var(--color-surface-offset)); border: 1px solid color-mix(in oklch,var(--color-success) 20%,transparent); }
+    .risk-level.warning { background: color-mix(in oklch,var(--color-warning) 8%,var(--color-surface-offset)); border: 1px solid color-mix(in oklch,var(--color-warning) 20%,transparent); }
+    .risk-level.danger  { background: color-mix(in oklch,var(--color-error)   8%,var(--color-surface-offset)); border: 1px solid color-mix(in oklch,var(--color-error)   20%,transparent); }
+    .risk-icon { font-size: 1.5rem; flex-shrink: 0; }
+    .risk-label { font-size: var(--text-xs); color: var(--color-text-muted); }
+    .risk-text  { font-size: var(--text-sm); font-weight: 700; }
+    .risk-bars  { display: flex; flex-direction: column; gap: var(--space-3); }
+    .risk-bar-row { display: flex; flex-direction: column; gap: 5px; }
+    .risk-bar-label { display: flex; justify-content: space-between; font-size: var(--text-xs); color: var(--color-text-muted); }
+    .bar-track  { height: 6px; background: var(--color-surface-offset); border-radius: 9999px; overflow: hidden; }
+    .bar-fill   { height: 100%; border-radius: 9999px; transition: width .6s cubic-bezier(.16,1,.3,1); }
+
+    /* ─── RECS ──────────────────────────────────────────── */
+    .recs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+    @media (max-width: 768px) { .recs-grid { grid-template-columns: 1fr; } }
+    .rec-card   { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-5); }
+    .rec-header { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-4); }
+    .rec-icon-wrap { width: 36px; height: 36px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+    .rec-title  { font-size: var(--text-sm); font-weight: 700; }
+    .rec-sub    { font-size: var(--text-xs); color: var(--color-text-muted); }
+    .rec-list   { display: flex; flex-direction: column; gap: var(--space-2); }
+    .rec-item   { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3); background: var(--color-surface-offset); border-radius: var(--radius-md); font-size: var(--text-xs); }
+    .rec-item-label  { font-weight: 600; color: var(--color-text); display: block; margin-bottom: 1px; }
+    .rec-item-detail { color: var(--color-text-muted); line-height: 1.5; }
+
+    /* ─── TABLE ─────────────────────────────────────────── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: var(--text-xs); }
+    thead th { text-align: left; padding: var(--space-2) var(--space-3); font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--color-text-muted); border-bottom: 1px solid var(--color-divider); }
+    tbody tr  { border-bottom: 1px solid var(--color-divider); transition: background var(--transition); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--color-surface-offset); }
+    tbody td  { padding: var(--space-3); font-family: 'JetBrains Mono', monospace; }
+    tbody td.text { font-family: 'Inter', sans-serif; }
+
+    /* ─── SCROLLBAR ─────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .content { padding: var(--space-4); }
+      .topbar  { padding: var(--space-3) var(--space-4); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── SIDEBAR ───────────────────────────────────────────── -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/>
+        <line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/>
+        <line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-text">S.C.O.U.T</div>
+      <div class="logo-sub">Sistema de Monitoramento</div>
+    </div>
+  </div>
+  <nav class="nav-section">
+    <div class="nav-label">Painel</div>
+    <a class="nav-item active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </a>
+    <a class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Histórico
+    </a>
+    <a class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/></svg>
+      Atletas
+    </a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Hardware</div>
+    <a class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2"/></svg>
+      ESP32 / Sensores
+    </a>
+    <a class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+      Node-RED
+    </a>
+  </nav>
+  <div class="status-indicator">
+    <div class="status-row">
+      <div class="dot" id="status-dot"></div>
+      <span id="status-text" style="color:var(--color-text-muted)">Conectando…</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ── MAIN ──────────────────────────────────────────────── -->
+<div class="main">
+  <header class="topbar">
+    <div class="topbar-title">Dashboard de Métricas</div>
+    <div class="topbar-actions">
+      <span class="badge-live"><span class="dot"></span> Ao Vivo</span>
+      <span class="last-update" id="last-update">Aguardando dados…</span>
+      <button class="btn-icon" id="theme-toggle" aria-label="Alternar tema">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+      <button class="btn-icon" id="refresh-btn" aria-label="Atualizar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- OFFLINE BANNER -->
+    <div class="offline-banner" id="offline-banner">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <span><strong>Backend offline</strong> — Dados simulados. Suba o sistema com <code>docker compose up --build</code>.</span>
+    </div>
+
+    <!-- ATHLETE BAR -->
+    <div class="athlete-bar">
+      <div class="athlete-avatar" id="av-initials">AT</div>
+      <div class="athlete-info">
+        <div class="athlete-name" id="av-name">Carregando…</div>
+        <div class="athlete-meta" id="av-meta">—</div>
+      </div>
+      <div class="device-tag">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2"/></svg>
+        <span id="av-device">esp32-prototype-001</span>
+      </div>
+    </div>
+
+    <!-- KPI CARDS -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Temperatura Corporal</span>
+          <div class="kpi-icon" style="background:color-mix(in oklch,var(--color-primary) 12%,var(--color-surface-offset))">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2" stroke-linecap="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
+          </div>
+        </div>
+        <div class="kpi-value" id="kpi-temp">--<span class="kpi-unit">°C</span></div>
+        <div class="kpi-status status-normal" id="kpi-temp-status">—</div>
+        <div class="kpi-glow" style="background:var(--color-primary)"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Risco de Lesão</span>
+          <div class="kpi-icon" style="background:color-mix(in oklch,var(--color-warning) 12%,var(--color-surface-offset))">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--color-warning)" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+        </div>
+        <div class="kpi-value" id="kpi-risk">--<span class="kpi-unit">%</span></div>
+        <div class="kpi-status" id="kpi-risk-status">—</div>
+        <div class="kpi-glow" style="background:var(--color-warning)"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Sensor</span>
+          <div class="kpi-icon" style="background:color-mix(in oklch,var(--color-blue) 12%,var(--color-surface-offset))">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--color-blue)" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+          </div>
+        </div>
+        <div class="kpi-value" style="font-size:var(--text-base);font-weight:700;padding-top:var(--space-3)" id="kpi-sensor">MAX30205</div>
+        <div class="kpi-status status-normal" id="kpi-uptime">Uptime: --</div>
+        <div class="kpi-glow" style="background:var(--color-blue)"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Última Medição</span>
+          <div class="kpi-icon" style="background:color-mix(in oklch,var(--color-success) 12%,var(--color-surface-offset))">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+        </div>
+        <div class="kpi-value" style="font-size:var(--text-sm);font-family:'JetBrains Mono';padding-top:var(--space-2)" id="kpi-received">--</div>
+        <div class="kpi-status status-normal" id="kpi-fw">FW: --</div>
+        <div class="kpi-glow" style="background:var(--color-success)"></div>
+      </div>
+    </div>
+
+    <!-- CHART + RISK -->
+    <div class="main-grid">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Histórico de Temperatura
+          </div>
+          <span id="chart-count" style="font-size:var(--text-xs);color:var(--color-text-muted)">0 medições</span>
+        </div>
+        <div class="card-body">
+          <div class="chart-wrap"><canvas id="tempChart"></canvas></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Análise de Risco
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="risk-level normal" id="risk-panel">
+            <span class="risk-icon" id="risk-emoji">🟢</span>
+            <div>
+              <div class="risk-label">Status atual</div>
+              <div class="risk-text" id="risk-main-text">Normal</div>
+            </div>
+          </div>
+          <div class="risk-bars">
+            <div class="risk-bar-row">
+              <div class="risk-bar-label"><span>Temperatura</span><span id="bar-temp-val">—</span></div>
+              <div class="bar-track"><div class="bar-fill" id="bar-temp" style="width:0%;background:var(--color-primary)"></div></div>
+            </div>
+            <div class="risk-bar-row">
+              <div class="risk-bar-label"><span>Risco</span><span id="bar-risk-val">—</span></div>
+              <div class="bar-track"><div class="bar-fill" id="bar-risk" style="width:0%;background:var(--color-warning)"></div></div>
+            </div>
+            <div class="risk-bar-row">
+              <div class="risk-bar-label"><span>Variação (últimas 10)</span><span id="bar-var-val">—</span></div>
+              <div class="bar-track"><div class="bar-fill" id="bar-var" style="width:0%;background:var(--color-blue)"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RECOMMENDATIONS -->
+    <div class="recs-grid" style="margin-bottom:var(--space-6)">
+      <div class="rec-card">
+        <div class="rec-header">
+          <div class="rec-icon-wrap" style="background:color-mix(in oklch,var(--color-blue) 12%,var(--color-surface-offset))">🏃</div>
+          <div><div class="rec-title">Sugestão de Treino</div><div class="rec-sub">Baseada na temperatura atual</div></div>
+        </div>
+        <div class="rec-list" id="training-recs"></div>
+      </div>
+      <div class="rec-card">
+        <div class="rec-header">
+          <div class="rec-icon-wrap" style="background:color-mix(in oklch,var(--color-success) 12%,var(--color-surface-offset))">🥗</div>
+          <div><div class="rec-title">Sugestão de Nutrição</div><div class="rec-sub">Hidratação e alimentação</div></div>
+        </div>
+        <div class="rec-list" id="nutrition-recs"></div>
+      </div>
+    </div>
+
+    <!-- HISTORY TABLE -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Últimas Medições
+        </div>
+        <span id="table-range" style="font-size:var(--text-xs);color:var(--color-text-muted)">—</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Horário</th><th>Temperatura</th><th>Sensor</th><th>Dispositivo</th><th>Risco</th><th>Status</th></tr></thead>
+          <tbody id="table-body">
+            <tr><td colspan="6" style="text-align:center;padding:var(--space-8);color:var(--color-text-muted);font-family:Inter">Buscando dados…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ── CONFIG ── */
+const API_BASE = 'http://localhost:8000';
+const POLL_MS  = 5000;
+const N        = 20;
+
+/* ── TEMA ── */
+(function(){
+  const html = document.documentElement;
+  const btn  = document.getElementById('theme-toggle');
+  let dark = true;
+  const sun  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`;
+  const moon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+  btn.addEventListener('click', () => {
+    dark = !dark;
+    html.setAttribute('data-theme', dark ? 'dark' : 'light');
+    btn.innerHTML = dark ? moon : sun;
+    if (chart) { chart.options.scales.x.ticks.color = css('--color-text-muted'); chart.options.scales.y.ticks.color = css('--color-text-muted'); chart.options.scales.x.grid.color = css('--color-divider'); chart.options.scales.y.grid.color = css('--color-divider'); chart.update('none'); }
+  });
+})();
+function css(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+/* ── CHART ── */
+let chart;
+(function(){
+  const ctx = document.getElementById('tempChart').getContext('2d');
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: [], datasets: [{ label: 'Temperatura (°C)', data: [], borderColor: 'rgba(45,184,192,1)', backgroundColor: 'rgba(45,184,192,0.07)', tension: 0.4, fill: true, pointRadius: 3, pointHoverRadius: 6, pointBackgroundColor: 'rgba(45,184,192,1)', borderWidth: 2 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 400 },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { backgroundColor: 'rgba(22,23,25,0.92)', titleColor: '#e8e6e2', bodyColor: '#7a7874', borderColor: '#2e3033', borderWidth: 1, padding: 10, callbacks: { label: c => ` ${c.parsed.y.toFixed(2)} °C` } }
+      },
+      scales: {
+        x: { ticks: { color: css('--color-text-muted'), font: { family:'JetBrains Mono', size:10 }, maxRotation: 0, maxTicksLimit: 8 }, grid: { color: css('--color-divider') } },
+        y: { ticks: { color: css('--color-text-muted'), font: { family:'JetBrains Mono', size:10 }, callback: v => v.toFixed(1)+'°' }, grid: { color: css('--color-divider') }, suggestedMin: 35, suggestedMax: 40 }
+      }
+    }
+  });
+})();
+
+/* ── DADOS SIMULADOS ── */
+let isOnline = false;
+function fakeMeasurements() {
+  const now = new Date();
+  return Array.from({ length: N }, (_, i) => {
+    const t = new Date(now - (N-1-i)*15000);
+    return { id: Math.random().toString(36).slice(2), device_uid: 'esp32-prototype-001', sensor: 'MAX30205', value_celsius: parseFloat((36.6+(Math.random()-.5)*1.4).toFixed(2)), unit: 'celsius', firmware_version: '0.1.0', uptime_ms: 120000+i*15000, received_at: t.toISOString(), measured_at: t.toISOString(), athlete_id: null };
+  });
+}
+
+/* ── FETCH ── */
+async function fetchData() {
+  try {
+    const r = await fetch(`${API_BASE}/api/v1/telemetry/temperature?limit=${N}&offset=0`, { signal: AbortSignal.timeout(4000) });
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    isOnline = true;
+    return await r.json();
+  } catch { isOnline = false; return fakeMeasurements(); }
+}
+
+/* ── RISCO ── */
+function risk(temp) {
+  if (temp < 36.0) return { pct:20, css:'warning', label:'Hipotermia Leve',    emoji:'🟡' };
+  if (temp < 37.5) return { pct:8,  css:'normal',  label:'Normal',             emoji:'🟢' };
+  if (temp < 38.0) return { pct:35, css:'warning', label:'Temperatura Alta',   emoji:'🟡' };
+  if (temp < 38.5) return { pct:60, css:'warning', label:'Febre Moderada',     emoji:'🟠' };
+  return               { pct:90, css:'danger',  label:'Febre Alta — Risco Elevado', emoji:'🔴' };
+}
+
+/* ── RECOMENDAÇÕES ── */
+const trainDB = {
+  low:  [{icon:'🔥',label:'Aquecimento Prolongado',detail:'Mínimo 15 min antes de qualquer esforço.'},{icon:'⚠️',label:'Evitar Alta Intensidade',detail:'Temperatura baixa aumenta risco de contraturas.'}],
+  ok:   [{icon:'✅',label:'Treino Normal Permitido',detail:'Temperatura ideal para alta performance.'},{icon:'🏃',label:'Intensidade Livre',detail:'Todos os grupos musculares sem restrição.'}],
+  high: [{icon:'🌡️',label:'Reduzir Intensidade',detail:'Evite acima de 70% da FC máxima.'},{icon:'💧',label:'Pausas a cada 10 min',detail:'Priorize exercícios de baixo impacto.'}],
+  crit: [{icon:'🛑',label:'Interromper Atividade',detail:'Risco de golpe de calor. Pare imediatamente.'},{icon:'🏥',label:'Avaliação Médica',detail:'Consulte médico antes de retomar treinos.'}],
+};
+const nutriDB = {
+  low:  [{icon:'☕',label:'Bebidas Quentes',detail:'Chás e sopas normalizam a temperatura central.'},{icon:'🍌',label:'Carboidratos Complexos',detail:'Aveia e batata-doce para calor metabólico.'}],
+  ok:   [{icon:'💧',label:'Hidratação Regular',detail:'250 ml a cada 20 min de exercício.'},{icon:'🍎',label:'Nutrição Balanceada',detail:'Proteína + carboidrato 2h antes do treino.'}],
+  high: [{icon:'🚰',label:'Hidratação Intensiva',detail:'Aumente ingestão hídrica em 30%. Prefira isotônicos.'},{icon:'🍋',label:'Eletrólitos',detail:'Sódio, potássio e magnésio para controle térmico.'}],
+  crit: [{icon:'🧊',label:'Resfriamento Imediato',detail:'Água fria, compressas geladas na nuca e axilas.'},{icon:'🥤',label:'Soro Oral (SRO)',detail:'A cada 15 min. Evite cafeína e álcool.'}],
+};
+function tier(temp){ return temp<36 ? 'low' : temp<37.5 ? 'ok' : temp<38.5 ? 'high' : 'crit'; }
+function renderRecs(id, list){
+  document.getElementById(id).innerHTML = list.map(r=>`<div class="rec-item"><span style="font-size:1.1rem;flex-shrink:0">${r.icon}</span><span><span class="rec-item-label">${r.label}</span><span class="rec-item-detail">${r.detail}</span></span></div>`).join('');
+}
+
+/* ── UPDATE UI ── */
+function updateUI(data) {
+  if (!data || !data.length) return;
+  const sorted = [...data].sort((a,b)=>new Date(a.received_at)-new Date(b.received_at));
+  const lat    = sorted[sorted.length-1];
+  const temp   = lat.value_celsius;
+  const r      = risk(temp);
+  const t      = tier(temp);
+
+  // Athlete bar
+  document.getElementById('av-device').textContent = lat.device_uid || 'esp32-prototype-001';
+  document.getElementById('av-name').textContent   = lat.athlete_id ? `Atleta ${String(lat.athlete_id).slice(0,8)}` : 'Atleta Não Vinculado';
+  document.getElementById('av-meta').textContent   = `Sensor: ${lat.sensor} · FW: ${lat.firmware_version||'—'}`;
+
+  // KPIs
+  document.getElementById('kpi-temp').innerHTML = `${temp.toFixed(2)}<span class="kpi-unit">°C</span>`;
+  const ts = document.getElementById('kpi-temp-status');
+  ts.textContent = temp<36 ? '⚠ Abaixo do normal' : temp<37.5 ? '✓ Normal' : temp<38 ? '↑ Elevada' : '⚠ Febre';
+  ts.className = `kpi-status status-${r.css}`;
+  document.getElementById('kpi-risk').innerHTML = `${r.pct}<span class="kpi-unit">%</span>`;
+  const rs = document.getElementById('kpi-risk-status');
+  rs.textContent = r.label; rs.className = `kpi-status status-${r.css}`;
+  document.getElementById('kpi-sensor').textContent  = lat.sensor || 'MAX30205';
+  document.getElementById('kpi-uptime').textContent  = lat.uptime_ms != null ? `Uptime: ${(lat.uptime_ms/60000).toFixed(1)} min` : 'Uptime: —';
+  const dt = new Date(lat.received_at);
+  document.getElementById('kpi-received').textContent = dt.toLocaleTimeString('pt-BR');
+  document.getElementById('kpi-fw').textContent = `FW: ${lat.firmware_version||'—'}`;
+  document.getElementById('last-update').textContent  = `Atualizado: ${dt.toLocaleTimeString('pt-BR')}`;
+
+  // Status
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('status-text');
+  dot.className = isOnline ? 'dot' : 'dot offline';
+  txt.textContent = isOnline ? 'Backend conectado' : 'Modo simulado';
+  txt.style.color = isOnline ? 'var(--color-success)' : 'var(--color-warning)';
+  document.getElementById('offline-banner').classList.toggle('show', !isOnline);
+
+  // Risk panel
+  document.getElementById('risk-panel').className = `risk-level ${r.css}`;
+  document.getElementById('risk-emoji').textContent    = r.emoji;
+  document.getElementById('risk-main-text').textContent = r.label;
+
+  // Bars
+  document.getElementById('bar-temp').style.width  = Math.min(100,Math.max(0,((temp-35)/5)*100))+'%';
+  document.getElementById('bar-temp-val').textContent = temp.toFixed(2)+' °C';
+  document.getElementById('bar-risk').style.width  = r.pct+'%';
+  document.getElementById('bar-risk-val').textContent = r.pct+'%';
+  const last10 = sorted.slice(-10).map(m=>m.value_celsius);
+  const avg = last10.reduce((s,v)=>s+v,0)/last10.length;
+  const variance = last10.reduce((acc,v)=>acc+Math.pow(v-avg,2),0)/last10.length;
+  document.getElementById('bar-var').style.width  = Math.min(100,variance*200).toFixed(0)+'%';
+  document.getElementById('bar-var-val').textContent = variance.toFixed(3);
+
+  // Chart
+  chart.data.labels  = sorted.map(m=>new Date(m.received_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}));
+  chart.data.datasets[0].data = sorted.map(m=>m.value_celsius);
+  chart.update();
+  document.getElementById('chart-count').textContent = `${sorted.length} medições`;
+
+  // Recs
+  renderRecs('training-recs',  trainDB[t]);
+  renderRecs('nutrition-recs', nutriDB[t]);
+
+  // Table
+  const rows = [...sorted].reverse().slice(0, N);
+  const colors = { normal:'var(--color-success)', warning:'var(--color-warning)', danger:'var(--color-error)' };
+  document.getElementById('table-body').innerHTML = rows.map(m=>{
+    const ri = risk(m.value_celsius);
+    return `<tr>
+      <td>${new Date(m.received_at).toLocaleString('pt-BR')}</td>
+      <td>${m.value_celsius.toFixed(2)} °C</td>
+      <td class="text">${m.sensor||'—'}</td>
+      <td class="text" style="font-size:.7rem">${m.device_uid||'—'}</td>
+      <td>${ri.pct}%</td>
+      <td><span style="color:${colors[ri.css]};font-weight:600">${ri.label}</span></td>
+    </tr>`;
+  }).join('');
+  if (rows.length > 1) {
+    document.getElementById('table-range').textContent =
+      `${new Date(rows[rows.length-1].received_at).toLocaleString('pt-BR')} → ${new Date(rows[0].received_at).toLocaleString('pt-BR')}`;
+  }
+}
+
+/* ── POLLING ── */
+async function poll() { updateUI(await fetchData()); }
+document.getElementById('refresh-btn').addEventListener('click', poll);
+poll();
+setInterval(poll, POLL_MS);
+</script>
+</body>
+</html>
