@@ -1,0 +1,205 @@
+[
+  {
+    "id": "b2c3f9b14c8d4f2a",
+    "type": "tab",
+    "label": "Temperature MQTT Bridge",
+    "disabled": false,
+    "info": ""
+  },
+  {
+    "id": "f0d90e2a61c9480a",
+    "type": "aedes broker",
+    "z": "b2c3f9b14c8d4f2a",
+    "name": "Aedes MQTT Broker",
+    "mqtt_port": "1883",
+    "mqtt_ws_bind": "port",
+    "mqtt_ws_port": "",
+    "mqtt_ws_path": "",
+    "cert": "",
+    "key": "",
+    "certname": "",
+    "keyname": "",
+    "dburl": "",
+    "usetls": false,
+    "persistence_bind": "memory",
+    "persist_to_file": false,
+    "x": 180,
+    "y": 100,
+    "wires": [
+      [
+        "aedes-events-debug"
+      ],
+      [
+        "aedes-publish-debug"
+      ]
+    ]
+  },
+  {
+    "id": "aedes-events-debug",
+    "type": "debug",
+    "z": "b2c3f9b14c8d4f2a",
+    "name": "Aedes Events",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "x": 440,
+    "y": 80,
+    "wires": []
+  },
+  {
+    "id": "aedes-publish-debug",
+    "type": "debug",
+    "z": "b2c3f9b14c8d4f2a",
+    "name": "Aedes Publish Events",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "x": 470,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "mqtt-temperature-in",
+    "type": "mqtt in",
+    "z": "b2c3f9b14c8d4f2a",
+    "name": "MQTT In: athletes/+/temperature",
+    "topic": "athletes/+/temperature",
+    "qos": "1",
+    "datatype": "utf8",
+    "broker": "mqtt-local-broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 170,
+    "y": 240,
+    "wires": [
+      [
+        "temperature-json-parser"
+      ]
+    ]
+  },
+  {
+    "id": "temperature-json-parser",
+    "type": "json",
+    "z": "b2c3f9b14c8d4f2a",
+    "name": "JSON Parser",
+    "property": "payload",
+    "action": "",
+    "pretty": false,
+    "x": 420,
+    "y": 240,
+    "wires": [
+      [
+        "validate-temperature-payload"
+      ]
+    ]
+  },
+  {
+    "id": "validate-temperature-payload",
+    "type": "function",
+    "z": "b2c3f9b14c8d4f2a",
+    "name": "validate_temperature_payload",
+    "func": "const payload = msg.payload || {};\nconst errors = [];\nconst deviceUid = payload.device_uid || payload.device_id;\n\nif (!deviceUid) {\n    errors.push('device_uid is required');\n} else {\n    payload.device_uid = deviceUid;\n}\n\nif (payload.sensor !== 'MAX30205') {\n    errors.push('sensor must be MAX30205');\n}\n\nif (payload.unit !== 'celsius') {\n    errors.push('unit must be celsius');\n}\n\nif (typeof payload.value_celsius !== 'number' || Number.isNaN(payload.value_celsius)) {\n    errors.push('value_celsius must be a number');\n} else if (payload.value_celsius < 15 || payload.value_celsius > 45) {\n    errors.push('value_celsius out of expected range (15-45)');\n}\n\nif (errors.length > 0) {\n    node.warn({ error: 'invalid_temperature_payload', errors, payload });\n    msg.payload = { error: 'invalid_temperature_payload', errors, payload };\n    return [null, msg];\n}\n\nmsg.headers = { 'Content-Type': 'application/json' };\nreturn [msg, null];",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 680,
+    "y": 240,
+    "wires": [
+      [
+        "post-temperature-http"
+      ],
+      [
+        "invalid-temperature-debug"
+      ]
+    ]
+  },
+  {
+    "id": "post-temperature-http",
+    "type": "http request",
+    "z": "b2c3f9b14c8d4f2a",
+    "name": "POST temperature to backend",
+    "method": "POST",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "http://backend:8000/api/v1/telemetry/temperature",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "authType": "",
+    "senderr": true,
+    "x": 950,
+    "y": 220,
+    "wires": [
+      [
+        "http-result-debug"
+      ]
+    ]
+  },
+  {
+    "id": "http-result-debug",
+    "type": "debug",
+    "z": "b2c3f9b14c8d4f2a",
+    "name": "Backend HTTP Result",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "x": 1190,
+    "y": 220,
+    "wires": []
+  },
+  {
+    "id": "invalid-temperature-debug",
+    "type": "debug",
+    "z": "b2c3f9b14c8d4f2a",
+    "name": "Invalid Temperature Payload",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "x": 970,
+    "y": 300,
+    "wires": []
+  },
+  {
+    "id": "mqtt-local-broker",
+    "type": "mqtt-broker",
+    "name": "Local Aedes Broker",
+    "broker": "localhost",
+    "port": "1883",
+    "clientid": "node-red-temperature-bridge",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willPayload": "",
+    "willMsg": {},
+    "sessionExpiry": ""
+  }
+]
